@@ -22,6 +22,7 @@
 package joliex.lang.reflection;
 
 import java.io.IOException;
+import java.util.Set;
 import jolie.ExecutionThread;
 import jolie.Interpreter;
 import jolie.SessionListener;
@@ -42,6 +43,7 @@ import jolie.runtime.typing.OneWayTypeDescription;
 import jolie.runtime.typing.OperationTypeDescription;
 import jolie.runtime.typing.RequestResponseTypeDescription;
 import jolie.runtime.typing.TypeCastingException;
+import jolie.runtime.typing.Type;
 import jolie.util.Pair;
 
 public class Reflection extends JavaService
@@ -172,5 +174,41 @@ public class Reflection extends JavaService
 		} catch( TypeCastingException e ) {
 			throw new FaultException( "Failed to coerce types" );
 		}
+	}
+
+	@RequestResponse
+	public Value getDesiredType( Value request )
+		throws FaultException
+	{
+		final String operation = request.getFirstChild( "operation" ).strValue();
+		final String outputPortName = request.getFirstChild( "outputPort" ).strValue();
+		final String resourcePath = ( request.hasChildren( "resourcePath" ) ) ? request.getFirstChild( "resourcePath" ).strValue() : "/";
+		try {
+			OutputPort port = interpreter.getOutputPort( request.getFirstChild( "outputPort").strValue() );
+			OperationTypeDescription opDesc = port.getOperationTypeDescription( operation, resourcePath );
+			Type t;
+			if ( opDesc == null ) {
+				throw new InvalidIdException( operation );
+			}
+			if ( opDesc instanceof RequestResponseTypeDescription ) {
+				RequestResponseTypeDescription desc = opDesc.asRequestResponseTypeDescription();
+				t = desc.requestType();
+			} else {
+				OneWayTypeDescription desc = opDesc.asOneWayTypeDescription();
+				t = desc.requestType();
+			}
+			Value v = Value.create();
+			v.setValue(t.getRootNativeId());
+			Set<String> children = t.getSubTypeNames();
+			if (children != null) {
+				// TODO: recursive (not that I would use it yet)
+				for (String name : children) {
+					v.setFirstChild(name, t.findSubType(name).getRootNativeId());
+				}
+			}
+			return v;
+			} catch( InvalidIdException e ) {
+				throw new FaultException( "OperationNotFound", "Could not find operation " + operation + "@" + outputPortName );
+			}
 	}
 }

@@ -7,6 +7,12 @@ type InvokeRequest:void {
 	.data?:undefined
 }
 
+type TypeInquiryRequest:void {
+	.operation:string
+	.outputPort:string
+	.resourcePath?:string
+}
+
 type InvocationFaultType:void {
 	.name:string
 	.data:string
@@ -70,7 +76,8 @@ RequestResponse:
 	If the operation is a OneWay, the invocation returns no value.
 	*/
 	invoke(InvokeRequest)(undefined) throws OperationNotFound(string) InvocationFault(InvocationFaultType),
-	invokeCoercive(InvokeRequest)(undefined) throws OperationNotFound(string) InvocationFault(InvocationFaultType)
+	invokeCoercive(InvokeRequest)(undefined) throws OperationNotFound(string) InvocationFault(InvocationFaultType),
+	getDesiredType(TypeInquiryRequest)(undefined)
 }
 
 outputPort Reflection {

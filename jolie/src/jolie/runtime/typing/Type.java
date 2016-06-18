@@ -24,6 +24,7 @@ package jolie.runtime.typing;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 import jolie.lang.NativeType;
 import jolie.runtime.Value;
@@ -64,6 +65,12 @@ class TypeImpl extends Type
 	}
 	
 	@Override
+	public Set<String> getSubTypeNames()
+	{
+		return ( subTypes != null ) ? subTypes.keySet() : null;
+	}
+	
+	@Override
 	protected void extend( TypeImpl other )
 	{
 		if ( subTypes != null && other.subTypes != null ) {
@@ -72,7 +79,12 @@ class TypeImpl extends Type
 			}
 		}
 	}
-	
+
+	@Override
+	public String getRootNativeId() {
+		return nativeType.id();
+	}
+
 	private Map< String, Type > copySubTypes()
 	{
 		if ( subTypes != null ) {
@@ -91,19 +103,6 @@ class TypeImpl extends Type
 	{
 		return cardinality;
 	}
-	
-	/* @Override
-	public Map< String, Type > subTypes()
-	{
-		return subTypes;
-	}
-	
-	@Override
-	public NativeType nativeType()
-	{
-		return nativeType;
-	}
-	*/
 	
 	@Override
 	public void cutChildrenFromValue( Value value )
@@ -299,20 +298,33 @@ class TypeChoice extends Type
 		this.left = left;
 		this.right = right;
 	}
-	
+
 	@Override
 	public Type findSubType( String key )
 	{
 		Type ret = left.findSubType( key );
 		return ( ret != null ) ? ret : right.findSubType( key );
 	}
-	
+
+	@Override
+	public String getRootNativeId() {
+		// WARNING: not well-defined (if I understand this type "type" correctly)
+		return left.getRootNativeId();
+	}
+
+	@Override
+	public Set<String> getSubTypeNames()
+	{
+		// WARNING: not well-defined (if I understand this type "type" correctly)
+		return left.getSubTypeNames();
+	}
+
 	@Override
 	protected Type copy()
 	{
 		return new TypeChoice( cardinality, left.copy(), right.copy() );
 	}
-	
+
 	@Override
 	protected void extend( TypeImpl other )
 	{
@@ -404,6 +416,9 @@ public abstract class Type implements Cloneable
 		check( value, new StringBuilder( "#Message" ) );
 	}
 
+	public abstract String getRootNativeId();
+	public abstract Set<String> getSubTypeNames();
+
 	public Value cast( Value value )
 		throws TypeCastingException
 	{
@@ -437,23 +452,24 @@ public abstract class Type implements Cloneable
 		{
 			return linkedType.findSubType( key );
 		}
-		
-		/* public Map< String, Type > subTypes()
-		{
-			return linkedType.subTypes();
+
+		@Override
+		public String getRootNativeId() {
+			return linkedType.getRootNativeId();
 		}
-		
-		public NativeType nativeType()
+
+		@Override
+		public Set<String> getSubTypeNames()
 		{
-			return linkedType.nativeType();
-		} */
-		
+			return linkedType.getSubTypeNames();
+		}
+
 		@Override
 		protected void extend( TypeImpl other )
 		{
 			linkedType.extend( other );
 		}
-		
+
 		@Override
 		protected Type copy()
 		{
