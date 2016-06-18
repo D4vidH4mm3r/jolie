@@ -122,36 +122,18 @@ public class Reflection extends JavaService
 	public Value invoke( Value request )
 		throws FaultException
 	{
-		final String operation = request.getFirstChild( "operation" ).strValue();
-		final String outputPortName = request.getFirstChild( "outputPort" ).strValue();
-		final String resourcePath = ( request.hasChildren( "resourcePath" ) ) ? request.getFirstChild( "resourcePath" ).strValue() : "/";
-		final Value data = request.getFirstChild( "data" );
-		try {
-			OutputPort port = interpreter.getOutputPort( request.getFirstChild( "outputPort").strValue() );
-			OperationTypeDescription opDesc = port.getOperationTypeDescription( operation, resourcePath );
-			if ( opDesc == null ) {
-				throw new InvalidIdException( operation );
-			} else if ( opDesc instanceof RequestResponseTypeDescription ) {
-				return runSolicitResponseInvocation( operation, port, data, opDesc.asRequestResponseTypeDescription() );
-			} else if ( opDesc instanceof OneWayTypeDescription ) {
-				return runNotificationInvocation( operation, port, data, opDesc.asOneWayTypeDescription() );
-			}
-			throw new InvalidIdException( operation );
-		} catch( InvalidIdException e ) {
-			throw new FaultException( "OperationNotFound", "Could not find operation " + operation + "@" + outputPortName );
-		} catch( InterruptedException e ) {
-			interpreter.logSevere( e );
-			throw new FaultException( new IOException( "Interrupted" ) );
-		} catch( FaultException e ) {
-			Value v = Value.create();
-			v.setFirstChild( "name", e.faultName() );
-			v.getChildren( "data" ).set( 0, e.value() );
-			throw new FaultException( "InvocationFault", v );
-		}
+		return invokeCommon( request, false );
 	}
 
 	@RequestResponse
 	public Value invokeCoercive( Value request )
+		throws FaultException
+	{
+		return invokeCommon( request, true );
+	}
+
+	@RequestResponse
+	public Value invokeCommon( Value request, boolean coerce )
 		throws FaultException
 	{
 		final String operation = request.getFirstChild( "operation" ).strValue();
@@ -164,12 +146,16 @@ public class Reflection extends JavaService
 			if ( opDesc == null ) {
 				throw new InvalidIdException( operation );
 			} else if ( opDesc instanceof RequestResponseTypeDescription ) {
-                RequestResponseTypeDescription desc = opDesc.asRequestResponseTypeDescription();
-                desc.requestType().cast(data);
+				RequestResponseTypeDescription desc = opDesc.asRequestResponseTypeDescription();
+				if ( coerce ) {
+					desc.requestType().cast(data);
+				}
 				return runSolicitResponseInvocation( operation, port, data, desc );
 			} else if ( opDesc instanceof OneWayTypeDescription ) {
-                OneWayTypeDescription desc = opDesc.asOneWayTypeDescription();
-                desc.requestType().cast(data);
+				OneWayTypeDescription desc = opDesc.asOneWayTypeDescription();
+				if ( coerce ) {
+					desc.requestType().cast(data);
+				}
 				return runNotificationInvocation( operation, port, data, desc );
 			}
 			throw new InvalidIdException( operation );
@@ -185,6 +171,6 @@ public class Reflection extends JavaService
 			throw new FaultException( "InvocationFault", v );
 		} catch( TypeCastingException e ) {
 			throw new FaultException( "Failed to coerce types" );
-        }
+		}
 	}
 }
