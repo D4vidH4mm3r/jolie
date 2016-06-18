@@ -41,6 +41,7 @@ import jolie.runtime.embedding.RequestResponse;
 import jolie.runtime.typing.OneWayTypeDescription;
 import jolie.runtime.typing.OperationTypeDescription;
 import jolie.runtime.typing.RequestResponseTypeDescription;
+import jolie.runtime.typing.TypeCastingException;
 import jolie.util.Pair;
 
 public class Reflection extends JavaService
@@ -147,5 +148,43 @@ public class Reflection extends JavaService
 			v.getChildren( "data" ).set( 0, e.value() );
 			throw new FaultException( "InvocationFault", v );
 		}
+	}
+
+	@RequestResponse
+	public Value invokeCoercive( Value request )
+		throws FaultException
+	{
+		final String operation = request.getFirstChild( "operation" ).strValue();
+		final String outputPortName = request.getFirstChild( "outputPort" ).strValue();
+		final String resourcePath = ( request.hasChildren( "resourcePath" ) ) ? request.getFirstChild( "resourcePath" ).strValue() : "/";
+		final Value data = request.getFirstChild( "data" );
+		try {
+			OutputPort port = interpreter.getOutputPort( request.getFirstChild( "outputPort").strValue() );
+			OperationTypeDescription opDesc = port.getOperationTypeDescription( operation, resourcePath );
+			if ( opDesc == null ) {
+				throw new InvalidIdException( operation );
+			} else if ( opDesc instanceof RequestResponseTypeDescription ) {
+                RequestResponseTypeDescription desc = opDesc.asRequestResponseTypeDescription();
+                desc.requestType().cast(data);
+				return runSolicitResponseInvocation( operation, port, data, desc );
+			} else if ( opDesc instanceof OneWayTypeDescription ) {
+                OneWayTypeDescription desc = opDesc.asOneWayTypeDescription();
+                desc.requestType().cast(data);
+				return runNotificationInvocation( operation, port, data, desc );
+			}
+			throw new InvalidIdException( operation );
+		} catch( InvalidIdException e ) {
+			throw new FaultException( "OperationNotFound", "Could not find operation " + operation + "@" + outputPortName );
+		} catch( InterruptedException e ) {
+			interpreter.logSevere( e );
+			throw new FaultException( new IOException( "Interrupted" ) );
+		} catch( FaultException e ) {
+			Value v = Value.create();
+			v.setFirstChild( "name", e.faultName() );
+			v.getChildren( "data" ).set( 0, e.value() );
+			throw new FaultException( "InvocationFault", v );
+		} catch( TypeCastingException e ) {
+			throw new FaultException( "Failed to coerce types" );
+        }
 	}
 }

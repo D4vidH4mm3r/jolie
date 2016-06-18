@@ -69,7 +69,8 @@ RequestResponse:
 	Invokes the specified .operation at .outputPort.
 	If the operation is a OneWay, the invocation returns no value.
 	*/
-	invoke(InvokeRequest)(undefined) throws OperationNotFound(string) InvocationFault(InvocationFaultType)
+	invoke(InvokeRequest)(undefined) throws OperationNotFound(string) InvocationFault(InvocationFaultType),
+	invokeCoercive(InvokeRequest)(undefined) throws OperationNotFound(string) InvocationFault(InvocationFaultType)
 }
 
 outputPort Reflection {
